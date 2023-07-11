@@ -1,0 +1,1 @@
+C:\Users\vourd\Documents\Unreal Projects\UE4\FPSTest\Plugins\Developer\RiderLink\Intermediate\Build\Win64\UE4Editor\Development\RD\Definitions.h
