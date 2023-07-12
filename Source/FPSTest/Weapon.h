@@ -61,7 +61,15 @@ private:
 	/** Name for clip bone. Each weapon have different bone name for the clip */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 	FName ClipBoneName;
+
+	/** Damage caused by a bullet */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	float Damage;
 	
+	/** Damage caused by a getting hit in head by bullet */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	float HeadShotDamage;
+
 public:
 	/** Adds an impulse to the Weapon */
 	void ThrowWeapon();
@@ -77,6 +85,8 @@ public:
 	FORCEINLINE EAmmoType GetAmmoType() const { return AmmoType; }
 	FORCEINLINE FName GetReloadMontageSection() const { return ReloadMontageSection; }
 	FORCEINLINE FName GetClipBoneName() const { return ClipBoneName; }
+	FORCEINLINE float GetDamage() const { return Damage; }
+	FORCEINLINE float GetHeadShotDamage() const { return HeadShotDamage; }
 
 	FORCEINLINE void SetMovingClip(bool Move) { bMovingClip = Move; }
 };

@@ -1,7 +1,9 @@
 
 #include "FPSTestCharacter.h"
 
+#include "Enemy.h"
 #include "Item.h"
+#include "RangeWeaponHitInterface.h"
 #include "Weapon.h"
 #include "Camera/CameraComponent.h"
 #include "Engine/SkeletalMeshSocket.h"
@@ -280,10 +282,12 @@ void AFPSTestCharacter::LookUpAtRate(float Rate)
 
 
 
-bool AFPSTestCharacter::GetBeamEndLocation(const FVector& MuzzleSocketLocation, FVector& OutBeamLocation)
+bool AFPSTestCharacter::GetBeamEndLocation(const FVector& MuzzleSocketLocation, FHitResult& OutHitResult)
 {
+	FVector OutBeamLocation;
 	/** Check for crosshair trace hit */
 	FHitResult CrosshairHitResult;
+	
 	if(CrosshairTrace(CrosshairHitResult,OutBeamLocation))
 	{
 		 OutBeamLocation = CrosshairHitResult.Location;
@@ -294,21 +298,20 @@ bool AFPSTestCharacter::GetBeamEndLocation(const FVector& MuzzleSocketLocation, 
 	}
 
 	/** Second trace from the gub barrrel */
-	FHitResult WeaponTraceHit;
 	const FVector WeaponTStartTrace{ MuzzleSocketLocation };
 	const FVector StartToEnd{ OutBeamLocation - MuzzleSocketLocation };
 	const FVector WeaponEndTrace{ MuzzleSocketLocation + StartToEnd + 1.25f };
 
-	GetWorld()->LineTraceSingleByChannel(WeaponTraceHit, WeaponTStartTrace, WeaponEndTrace,
+	GetWorld()->LineTraceSingleByChannel(OutHitResult, WeaponTStartTrace, WeaponEndTrace,
 		ECC_Visibility);
 
 	/** WeaponTraceHit shows if we hit the object`s between barrel and end point */
-	if(WeaponTraceHit.bBlockingHit)
+	if(!OutHitResult.bBlockingHit)
 	{
-		OutBeamLocation = WeaponTraceHit.Location;
-		return true;
+		OutHitResult.Location = OutBeamLocation;
+		return false;
 	}
-	return false;
+	return true;
 }
 
 void AFPSTestCharacter::TraceForItems()
@@ -479,7 +482,8 @@ void AFPSTestCharacter::SendBullet()
 	 * 1. We are checking if BarrelSocket is setup in UE by name "BarrelSocket"
 	 * and store socket location in local veriable
 	 */
-	if(const USkeletalMeshSocket* BarrelSocket = EquippedWeapon->GetItemMesh()->GetSocketByName("BarrelSocket"))
+	const USkeletalMeshSocket* BarrelSocket = EquippedWeapon->GetItemMesh()->GetSocketByName("BarrelSocket");
+	if(BarrelSocket)
 	{
 		/** 2. Save transform of BarrelSocket if variable*/
 		const FTransform SocketTransform = BarrelSocket->GetSocketTransform(EquippedWeapon->GetItemMesh());
@@ -491,12 +495,59 @@ void AFPSTestCharacter::SendBullet()
 		}
 
 		/** 4. We call GetBeamEndLocation() function if it return true we spawn two particle effects*/ 
-		FVector BeamEnd;
-		if(GetBeamEndLocation(SocketTransform.GetLocation(), BeamEnd))
+		FHitResult BeamHitResult;
+		bool bBeamEnd = GetBeamEndLocation(SocketTransform.GetLocation(), BeamHitResult);
+		if(bBeamEnd)
 		{
+			/** Does hit Actor implement RangeWeaponHitInterface? */
+			if (BeamHitResult.Actor.IsValid())
+			{
+				IRangeWeaponHitInterface* RangeWeaponHitInterface = Cast<IRangeWeaponHitInterface>(BeamHitResult.Actor.Get());
+				if (RangeWeaponHitInterface)
+				{
+					RangeWeaponHitInterface->BulletHit_Implementation(BeamHitResult);
+				}
+				
+				
+				AEnemy* HitEnemy = Cast<AEnemy>(BeamHitResult.Actor.Get());
+				if (HitEnemy)
+				{
+					if (BeamHitResult.BoneName.ToString() == HitEnemy->GetHeadBone())
+					{
+						// Head shot
+						UGameplayStatics::ApplyDamage(
+							BeamHitResult.Actor.Get(),
+							EquippedWeapon->GetHeadShotDamage(),
+							GetController(),
+							this,
+							UDamageType::StaticClass());
+						UE_LOG(LogTemp, Warning, TEXT("HitComponent: %s"), *BeamHitResult.BoneName.ToString());
+					}
+					else
+					{
+						// Body shot
+						UGameplayStatics::ApplyDamage(
+							BeamHitResult.Actor.Get(),
+							EquippedWeapon->GetDamage(),
+							GetController(),
+							this,
+							UDamageType::StaticClass());
+						UE_LOG(LogTemp, Warning, TEXT("HitComponent: %s"), *BeamHitResult.BoneName.ToString());
+					}
+				}
+			}
+
+			else
+			{
+				if(ImpactParticles)
+				{
+					UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticles, BeamHitResult.Location);
+				}
+			}
+			
 			if(ImpactParticles)
 			{
-				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(),ImpactParticles, BeamEnd);
+				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(),ImpactParticles, BeamHitResult.Location);
 			}
 
 			if(BeamParticles)
@@ -504,7 +555,7 @@ void AFPSTestCharacter::SendBullet()
 				if(UParticleSystemComponent* Beam = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(),
 					BeamParticles, SocketTransform))
 				{
-					Beam->SetVectorParameter(FName("Target"), BeamEnd);
+					Beam->SetVectorParameter(FName("Target"), BeamHitResult.Location);
 				}
 			}
 		}

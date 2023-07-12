@@ -15,6 +15,9 @@ AWeapon::AWeapon()
 	MagazineCapacity = 30;
 
 	ClipBoneName = "smg_clip";
+
+	Damage = 20.f;
+	HeadShotDamage = 30.f;
 	
 	PrimaryActorTick.bCanEverTick = true;
 }
@@ -70,3 +73,7 @@ void AWeapon::StopFalling()
 	bFalling = false;
 	SetItemState(EItemState::EIS_Pickup);
 }
+
+
+
+

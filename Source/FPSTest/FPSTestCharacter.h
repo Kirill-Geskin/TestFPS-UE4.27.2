@@ -57,7 +57,7 @@ protected:
 	/** Called when fire button is pressed */
 	void FireWeapon();
 
-	bool GetBeamEndLocation(const FVector& MuzzleSocketLocation, FVector& OutBeamLocation);
+	bool GetBeamEndLocation(const FVector& MuzzleSocketLocation, FHitResult& OutHitResult);
 
 	/** Trace from crosshair to target */
 	bool CrosshairTrace(FHitResult& HitResult, FVector& OutHitLocation);
