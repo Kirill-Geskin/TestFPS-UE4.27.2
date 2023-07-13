@@ -15,8 +15,6 @@ class UParticleSystem;
 class UAnimMontage;
 class AWeapon;
 
-
-
 UENUM(BlueprintType)
 enum class ECombatState : uint8
 {
@@ -168,12 +166,19 @@ protected:
 	UFUNCTION(BlueprintCallable)
 	void ReplaceClip();
 
+	void Die();
+	
+	UFUNCTION(BlueprintCallable)
+	void FinishDeath();
+
 public:
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	/** Take damage func */
+	virtual float TakeDamage(float DamageAmount,struct FDamageEvent const& DamageEvent,
+		class AController* EventInstigator,AActor* DamageCauser) override;
 
 private:
 	/** CameraSpringArmComponent positioning the camera behind the character */
@@ -239,8 +244,7 @@ private:
 	/** Combat State, can only fire or reload if Unoccupied */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	ECombatState CombatState;
-
-
+	
 	/**
 	*	Section for different weapons ammo logic
 	*/
@@ -289,6 +293,34 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	USceneComponent* HandSceneComponent;
 
+	/**
+	*	Section for character health
+	*/
+	
+	/** Character health */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	float Health;
+
+	/** Character max health */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	float MaxHealth;
+
+	/**
+	*	Section for impact 
+	*/
+	
+	/** Sound made when Character gets hit by a melee attack */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	USoundCue* MeleeImpactSound;
+
+	/** Blood splatter particles for melee hit */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UParticleSystem* BloodParticles;
+
+	/** Montage for Character death */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* DeathMontage;
+
 public:
 	/** Returns CameraSpringArmComponent subobject*/
 	FORCEINLINE USpringArmComponent* GetCameraSpringArmComponent() const { return CameraSpringArmComponent; }
@@ -302,5 +334,8 @@ public:
 
 	/** Adds/subtracts to/from OverlappedItemCount and updates bShouldTraceForItems */
 	void IncrementOverlappedItemCount(int8 Amount);
+
+	FORCEINLINE USoundCue* GetMeleeImpactSound() const { return MeleeImpactSound; }
+	FORCEINLINE UParticleSystem* GetBloodParticles() const { return BloodParticles; }
 };
 

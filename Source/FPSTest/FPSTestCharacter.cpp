@@ -2,9 +2,11 @@
 #include "FPSTestCharacter.h"
 
 #include "Enemy.h"
+#include "EnemyController.h"
 #include "Item.h"
 #include "RangeWeaponHitInterface.h"
 #include "Weapon.h"
+#include "BehaviorTree/BlackboardComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Kismet/GameplayStatics.h"
@@ -55,6 +57,13 @@ AFPSTestCharacter::AFPSTestCharacter()
 	
 	bShouldTraceForItems = false;
 	OverlappedItemCount = 0.f;
+
+	/**
+	 * Variables for character health
+	 */
+
+	Health = 100.f;
+	MaxHealth = 100.f;
 
 	/** Create CameraSpringArmComponent. Pulls towards the character if there is a collision*/
 	CameraSpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraSpringArmComponent"));
@@ -244,6 +253,50 @@ void AFPSTestCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerI
 	PlayerInputComponent->BindAction("ReloadButton", IE_Pressed, this, &AFPSTestCharacter::ReloadButtonPressed);
 }
 
+float AFPSTestCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,
+	AActor* DamageCauser)
+{
+	if (Health - DamageAmount <= 0.f)
+	{
+		Health = 0.f;
+		Die();
+
+		auto EnemyController = Cast<AEnemyController>(EventInstigator);
+		if(EnemyController)
+		{
+			EnemyController->GetBlackboardComponent()->SetValueAsBool(FName(TEXT("CharacterDead")), true);
+		}
+	}
+	else
+	{
+		Health -= DamageAmount;
+	}
+	return DamageAmount;
+}
+
+void AFPSTestCharacter::Die()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && DeathMontage)
+	{
+		AnimInstance->Montage_Play(DeathMontage);
+		AnimInstance->Montage_JumpToSection(FName("DeathA"), DeathMontage);
+	}
+	
+	// Start bullet fire timer for crosshairs
+	//StartCrosshairBulletFire();
+}
+
+void AFPSTestCharacter::FinishDeath()
+{
+	GetMesh()->bPauseAnims = true;
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+	if (PlayerController)
+	{
+		DisableInput(PlayerController);
+	}
+}
+
 void AFPSTestCharacter::MoveForward(float Value)
 {
 	if(Controller && Value)
@@ -299,8 +352,8 @@ bool AFPSTestCharacter::GetBeamEndLocation(const FVector& MuzzleSocketLocation, 
 
 	/** Second trace from the gub barrrel */
 	const FVector WeaponTStartTrace{ MuzzleSocketLocation };
-	const FVector StartToEnd{ OutBeamLocation - MuzzleSocketLocation };
-	const FVector WeaponEndTrace{ MuzzleSocketLocation + StartToEnd + 1.25f };
+	const FVector StartToEnd{ OutBeamLocation - WeaponTStartTrace };
+	const FVector WeaponEndTrace{ MuzzleSocketLocation + StartToEnd * 1.25f };
 
 	GetWorld()->LineTraceSingleByChannel(OutHitResult, WeaponTStartTrace, WeaponEndTrace,
 		ECC_Visibility);
@@ -659,3 +712,4 @@ void AFPSTestCharacter::ReplaceClip()
 {
 	EquippedWeapon->SetMovingClip(false);
 }
+
